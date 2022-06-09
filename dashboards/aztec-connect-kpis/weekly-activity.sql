@@ -1,8 +1,14 @@
 -- https://dune.com/queries/874783
 
--- filter txns down to only relevant txns to prevent double counting
-select * 
-from dune_user_generated.aztec_v2
+with tokens as (
+  select distinct contract_address as token_address
+  from dune_user_generated.aztec_v2_rollup_bridge_transfers
+)
+, prices as (
+  select t.token_address
+  from tokens t
+  left join prices.usd p
+)
 ;
 
 
