@@ -1,7 +1,7 @@
--- this uses the contract aliases to identify and categorize erc20 transactions between them
+-- this uses the contract aliases to identify and categorize erc20 transactions that involve Aztec Connect 
 
 -- filter txns down to only relevant txns to prevent double counting
-create or replace view dune_user_generated.aztec_v2_bridge_transfers as 
+create or replace view dune_user_generated.aztec_v2_rollup_bridge_transfers as 
 with tfers_raw as (
   select distinct t.*
     from erc20."ERC20_evt_Transfer" t
@@ -31,7 +31,7 @@ with tfers_raw as (
     , from_contract.contract_type as from_type
   from tfers_raw t
   left join erc20.tokens tk on t.contract_address = tk.contract_address
-  left join dune_user_generated.aztec_v2_contracts to_contract on t."to" = to_contract.contract_address
-  left join dune_user_generated.aztec_v2_contracts from_contract on t."from" = from_contract.contract_address
+  left join dune_user_generated.aztec_v2_contract_labels to_contract on t."to" = to_contract.contract_address
+  left join dune_user_generated.aztec_v2_contract_labels from_contract on t."from" = from_contract.contract_address
 )
 select * from tfers_categorized
