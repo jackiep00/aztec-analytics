@@ -29,6 +29,18 @@ with tfers_raw as (
     , to_contract.contract_type as to_type
     , from_contract.protocol as from_protocol
     , from_contract.contract_type as from_type
+    , case when to_contract.contract_type = 'Bridge' then to_contract.contract_address
+      when from_contract.contract_type = 'Bridge' then from_contract.contract_address
+      else null end
+      as bridge_address
+    , case when to_contract.contract_type = 'Bridge' then to_contract.protocol
+      when from_contract.contract_type = 'Bridge' then from_contract.protocol
+      else null end
+      as bridge_protocol
+    , case when to_contract.contract_type = 'Bridge' then to_contract.version
+      when from_contract.contract_type = 'Bridge' then from_contract.version
+      else null end
+      as bridge_version
   from tfers_raw t
   left join erc20.tokens tk on t.contract_address = tk.contract_address
   left join dune_user_generated.aztec_v2_contract_labels to_contract on t."to" = to_contract.contract_address
