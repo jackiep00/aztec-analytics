@@ -1,10 +1,11 @@
-create view dune_user_generated.view_aztec_v2_daily_bridge_activity as 
+create or replace view dune_user_generated.view_aztec_v2_daily_bridge_activity as 
 with daily_transfers as (
     select date_trunc('day', evt_block_time) as date
         , bridge_protocol
         , bridge_address
         , contract_address as token_address
-        , count(*) as num_txns
+        , count(*) as num_tfers -- number of transfers
+        , count(distinct evt_tx_hash) as num_txns
         , sum(value_norm) as abs_value_norm
     from dune_user_generated.aztec_v2_rollup_bridge_transfers
     where bridge_protocol is not null -- exclude all txns that don't interact with the bridges
@@ -17,6 +18,7 @@ with daily_transfers as (
         , dt.token_address
         , p.symbol
         , dt.num_txns
+        , dt.num_tfers
         , dt.abs_value_norm
         , dt.abs_value_norm * p.avg_price_usd as abs_volume_usd
         , dt.abs_value_norm * p.avg_price_eth as abs_volume_eth
