@@ -1,0 +1,1 @@
+-- We use first-time deposits as a proxy for new user counts.
