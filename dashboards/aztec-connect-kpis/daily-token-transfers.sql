@@ -28,6 +28,8 @@ with transfers as (
         , tf.evt_block_time::date as day
         , sum(tf.value) as net_value_raw
         , sum(tf.value) / 10^(coalesce(tk.decimals,18)) as net_value
+        , sum(case when tf.value < 0 then tf.value else 0 end) / 10^(coalesce(tk.decimals,18)) as value_out
+        , sum(case when tf.value > 0 then tf.value else 0 end) / 10^(coalesce(tk.decimals,18)) as value_in
     from transfers tf
     left join erc20.tokens tk on tf.token_address = tk.contract_address
     group by 1,2,3,4,5,6
