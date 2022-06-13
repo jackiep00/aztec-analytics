@@ -8,7 +8,7 @@ with daily_transfers as (
         , contract_address as token_address
         , count(*) as num_tfers -- number of transfers
         , count(distinct evt_tx_hash) as num_rollups -- number of rollups
-        , sum(value_norm) as abs_value_norm -- this likely double counts
+        , sum(case when spec_txn_type in ('Bridge to Protocol','Protocol to Bridge') then value_norm else 0 end ) as abs_value_norm
         , sum(case when spec_txn_type = 'Bridge to Protocol' then value_norm else 0 end ) as input_value_norm
         , sum(case when spec_txn_type = 'Protocol to Bridge' then value_norm else 0 end ) as output_value_norm
     from dune_user_generated.aztec_v2_rollup_bridge_transfers
