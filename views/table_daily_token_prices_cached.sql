@@ -1,6 +1,6 @@
 -- Cache the prices for faster iteration
-
-create table dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached as
+drop table if exists dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached cascade;
+create table if not exists dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached as
 ---------------------------------------------------------------------
 -- Section 1: which tokens we're looking at
 with tokens as (
@@ -110,7 +110,7 @@ union
 select * from dex_price_feed
 ;
 ------------------------------------------------------------------------------
--- Step 2: Create some indices for the table
+-- Section 5: Create some indices for the table
 create index on dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached(token_address);
 create index on dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached(token_address, date);
 
