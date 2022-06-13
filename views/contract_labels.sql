@@ -26,3 +26,11 @@ insert into dune_user_generated.aztec_v2_contract_labels
 ('Lido',                 'Bridge',           '1.0',     'Prod Lido Bridge',             '\x381abF150B53cc699f0dBBBEF3C5c0D1fA4B3Efd'::bytea),
 ('AceOfZK',              'Bridge',           '1.0',     'Ace Of ZK NFT - nonfunctional','\x0eb7f9464060289fe4fddfde2258f518c6347a70'::bytea)
 ;
+
+alter table dune_user_generated.aztec_v2_contract_labels add contract_creator bytea;
+
+update dune_user_generated.aztec_v2_contract_labels
+set contract_creator = t."from"
+from ethereum.traces t
+where t.type = 'create'
+and aztec_v2_contract_labels.contract_address = t.address;
