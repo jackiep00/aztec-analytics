@@ -38,7 +38,8 @@ with rollup_balance_changes as (
     , b.balance * p.avg_price_usd as tvl_usd
     , b.balance * p.avg_price_eth as tvl_eth
   from token_balances_filled b
-  inner join dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached p on b.date = p.date
-        and b.token_address = p.token_address
+  -- inner join dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached p on b.date = p.date and b.token_address = p.token_address
+  inner join dune_user_generated.view_aztec_v2_daily_bridged_tokens_prices p on b.date = p.date and b.token_address = p.token_address
+  
 )
 select * from token_tvls
