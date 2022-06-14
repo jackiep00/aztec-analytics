@@ -5,3 +5,4 @@ select date
   , sum(tvl_eth) as tvl_eth
 from dune_user_generated.aztec_v2_daily_estimated_rollup_tvl
 group by 1
+order by 1 desc
