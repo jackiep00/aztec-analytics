@@ -1,9 +1,10 @@
 -- https://dune.com/queries/909707
+
+-- this query does not include beta rollup transactions
 with daily_rollup_counts as (
   select date_trunc('day', evt_block_time) as date
-    , count(distinct evt_tx_hash) as num_rollups -- number of rollups
-  from dune_user_generated.aztec_v2_rollup_bridge_transfers r
-  where spec_txn_type in ('RP to Bridge', 'Bridge to RP')
+    , count(*) as num_rollups
+  from aztec_v2."RollupProcessor_evt_RollupProcessed" r
   group by 1
 )
 , date_series as (
