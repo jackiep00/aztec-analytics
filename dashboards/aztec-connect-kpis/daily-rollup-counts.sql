@@ -13,7 +13,7 @@ with daily_rollup_counts as (
 )
 , cum_rollups as (
   select d.date
-    , coalesce(num_rollups,0) as num_depositors
+    , coalesce(num_rollups,0) as num_rollups
     , sum(num_rollups) over (order by d.date) as total_rollups
   from date_series d
   left join daily_rollup_counts r on d.date = r.date
