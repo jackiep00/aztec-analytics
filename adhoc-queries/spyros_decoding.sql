@@ -71,17 +71,29 @@ drop type dune_user_generated.aztec_v2_proof_data_struct cascade;
 
 drop type dune_user_generated.aztec_v2_proof_bridge_data_struct cascade;
 
+-- Infomation for bridge usage in a rollup. inputs can have up to 2 different assets of equal value; same for output assets
 create type dune_user_generated.aztec_v2_proof_bridge_data_struct as (
+  -- 1-based bridge id. values can be mapped with contract method getSupportedBridges or getSupportedBridge(id)
   addressId numeric,
+  -- bridge name, currently hardcoded
+  name text,
+  -- first input asset ID
   inputAssetIdA numeric,
+  -- first input asset
   outputAssetIdA numeric,
+  -- first output asset (optional)
   inputAssetIdB numeric,
+  -- second output asset (optional)
   outputAssetIdB numeric,
+  -- auxData used as input by each specific bridge
   auxData numeric,
+  -- true/false flag for second input being present
   secondInputInUse boolean,
+  -- true/false flag for second output being present
   secondOutputInUse boolean
 );
 
+-- Transaction data
 create type dune_user_generated.aztec_v2_inner_proof_data_struct as (
   proofType text,
   noteCommitment1 bytea,
@@ -105,9 +117,13 @@ create type dune_user_generated.aztec_v2_proof_data_struct as (
   newDataRootsRoot bytea,
   oldDefiRoot bytea,
   newDefiRoot bytea,
+  -- array of data for bridges used in rollup. Length will always be 32, bridge with address = 0 is empty data
   bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [],
+  -- sum of deposits made to a bridge. total value is denominated in inputAssetIdA. Mapping is 1-1 with bridges list
   defiDepositSums numeric [],
+  -- asset IDs that fees were paid into
   assetIds numeric [],
+  -- transaction fees paid with each asset. Mapping 1-1 with assetIds. Denominated in specific asset
   totalTxFees numeric [],
   defiInteractionNotes bytea [],
   prevDefiInteractionHash bytea,
@@ -134,6 +150,8 @@ innerProof dune_user_generated.aztec_v2_inner_proof_data_struct;
 bridge dune_user_generated.aztec_v2_proof_bridge_data_struct;
 bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [];
 asset text;
+bridgeName text;
+bridgeNum numeric;
 assetId numeric;
 proofType text;
 
@@ -172,6 +190,26 @@ rollupSize = bytea2numeric(substring(data, 61, 4), false);
 for i in 0..NUM_BRIDGE_CALLS_PER_BLOCK - 1 
 loop 
   bridgeId = substring(data, startIndex + 1, 32);
+  bridgeNum = bytea2numeric(substring(bridgeId, length(bridgeId) - 3, 4), false)::bigint & ((1::bigint << 32) - 1);
+  
+ -- currently hardcoded here but should be able to fetch dynamically from aztec_v2.RollupProcessor_call_getSupportedBridge
+ case bridgeNum
+   when 1
+   then 
+     bridgeName = 'ElementBridge';
+   when 2, 3
+   then
+     bridgeName = 'LidoBridge';
+   when 4
+   then 
+     bridgeName = 'AceOfZkBridge';
+  when 5
+  then
+     bridgeName = 'CurveStEthBridge';
+  else
+     bridgeName = 'N/A';
+ end case;
+  
   inputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 32);
   outputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 92);
   inputAssetIdB = dune_user_generated.f_bytea_rshift(bridgeId, 62);
@@ -193,7 +231,9 @@ loop
  
   select
   --   addressId: numeric
-    bytea2numeric(substring(bridgeId, length(bridgeId) - 3, 4), false)::bigint & ((1::bigint << 32) - 1),
+    bridgeNum,
+  -- bridgeName: text
+    bridgeName,
   --   inputAssetIdA: numeric
     bytea2numeric(substring(inputAssetIdA, length(inputAssetIdA) - 7, 8), false)::bigint & (((1::bigint << 30) - 1)),
   --   outputAssetIdA: numeric
@@ -447,7 +487,7 @@ select
   "call_block_time",
   (
     select
-      bridges
+      dataStartIndex
     from
       dune_user_generated.fn_process_aztec_block("_0")
   ),
