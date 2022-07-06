@@ -1,19 +1,109 @@
-drop type if exists aztec_v2.inner_proof_data_struct cascade;
+-- taken from https://github.com/simplestreet/bytea_bitwise_operation
+CREATE OR REPLACE FUNCTION dune_user_generated.f_bytea_to_bit(
+    IN i_bytea BYTEA
+)
+RETURNS BIT VARYING
+AS
+$BODY$
+DECLARE
+    w_bit BIT VARYING := b'';
+BEGIN
+    w_bit := ('x' || ltrim(i_bytea::text, '\x'))::bit varying;
+RETURN w_bit;
+END;
+$BODY$
+LANGUAGE plpgsql;
 
-drop type if exists aztec_v2.proof_data_struct cascade;
 
-create type aztec_v2.inner_proof_data_struct as (
-  proofId numeric,
+CREATE OR REPLACE FUNCTION dune_user_generated.f_bit_to_bytea(
+    IN i_bit BIT VARYING
+)
+RETURNS bytea
+AS
+$BODY$
+DECLARE
+    w_panel_data_len INTEGER;
+    w_str_bit TEXT := '';
+    w_bytea BYTEA := NULL::BYTEA;
+BEGIN
+    /* Get number of bytes */
+    w_panel_data_len := octet_length(i_bit);
+
+    IF length(i_bit) % 8 != 0 THEN
+        RAISE 'Can not convert to bytea. The passed argument is % bits', length(i_bit);
+    END IF;
+
+    FOR i IN 0 .. w_panel_data_len - 1 LOOP
+        w_str_bit := w_str_bit || lpad(to_hex(substring(i_bit from (i * 8) + 1  for 8)::int), 2, '0');
+    END LOOP;
+
+    w_bytea := decode(w_str_bit, 'hex');
+
+RETURN w_bytea;
+END;
+$BODY$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION dune_user_generated.f_bytea_rshift(
+    IN i_bytea BYTEA,
+    IN i_num INTEGER
+)
+RETURNS BYTEA
+AS
+$BODY$
+DECLARE
+    w_bit BIT VARYING := b'';
+    w_bytea BYTEA := null::BYTEA;
+BEGIN
+    w_bit := dune_user_generated.f_bytea_to_bit(i_bytea);
+    w_bytea := dune_user_generated.f_bit_to_bytea(w_bit >> i_num);
+RETURN w_bytea;
+END;
+$BODY$
+LANGUAGE plpgsql;
+
+
+drop type dune_user_generated.aztec_v2_inner_proof_data_struct cascade;
+
+drop type dune_user_generated.aztec_v2_proof_data_struct cascade;
+
+drop type dune_user_generated.aztec_v2_proof_bridge_data_struct cascade;
+
+-- Infomation for bridge usage in a rollup. inputs can have up to 2 different assets of equal value; same for output assets
+create type dune_user_generated.aztec_v2_proof_bridge_data_struct as (
+  -- 1-based bridge id. values can be mapped with contract method getSupportedBridges or getSupportedBridge(id)
+  addressId numeric,
+  -- bridge name, currently hardcoded
+  name text,
+  -- first input asset ID
+  inputAssetIdA numeric,
+  -- first input asset
+  outputAssetIdA numeric,
+  -- first output asset (optional)
+  inputAssetIdB numeric,
+  -- second output asset (optional)
+  outputAssetIdB numeric,
+  -- auxData used as input by each specific bridge
+  auxData numeric,
+  -- true/false flag for second input being present
+  secondInputInUse boolean,
+  -- true/false flag for second output being present
+  secondOutputInUse boolean
+);
+
+-- Transaction data
+create type dune_user_generated.aztec_v2_inner_proof_data_struct as (
+  proofType text,
   noteCommitment1 bytea,
   noteCommitment2 bytea,
   nullifier1 bytea,
   nullifier2 bytea,
-  publicValue bytea,
+  publicValue numeric,
   publicOwner bytea,
-  assetId bytea
+  assetId numeric
 );
 
-create type aztec_v2.proof_data_struct as (
+create type dune_user_generated.aztec_v2_proof_data_struct as (
   rollupId numeric,
   rollupSize numeric,
   dataStartIndex numeric,
@@ -25,33 +115,52 @@ create type aztec_v2.proof_data_struct as (
   newDataRootsRoot bytea,
   oldDefiRoot bytea,
   newDefiRoot bytea,
-  bridgeIds bytea [],
+  -- array of data for bridges used in rollup. Length will always be 32, bridge with address = 0 is empty data
+  bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [],
+  -- sum of deposits made to a bridge. total value is denominated in inputAssetIdA. Mapping is 1-1 with bridges list
   defiDepositSums numeric [],
+  -- asset IDs that fees were paid into
   assetIds numeric [],
+  -- transaction fees paid with each asset. Mapping 1-1 with assetIds. Denominated in specific asset
   totalTxFees numeric [],
   defiInteractionNotes bytea [],
   prevDefiInteractionHash bytea,
   rollupBeneficiary bytea,
   numRollupTxs numeric,
-  innerProofs aztec_v2.inner_proof_data_struct []
+  innerProofs dune_user_generated.aztec_v2_inner_proof_data_struct []
 );
 
-DROP FUNCTION if exists aztec_v2.fn_process_block(data bytea);
 create
-or replace function aztec_v2.fn_process_block(data bytea) returns aztec_v2.proof_data_struct as 
+or replace function dune_user_generated.fn_process_aztec_block(data bytea) returns dune_user_generated.aztec_v2_proof_data_struct as 
 $$
 declare 
 
-proofData aztec_v2.proof_data_struct;
+proofData dune_user_generated.aztec_v2_proof_data_struct;
 
--- array & struct placeholders
-bridgeIds bytea [];
+-- placeholders
+bridgeId bytea;
 defiDepositSums numeric [];
 assetIds numeric [];
 totalTxFees numeric [];
 defiInteractionNotes bytea [];
-innerProofs aztec_v2.inner_proof_data_struct [];
-innerProof aztec_v2.inner_proof_data_struct;
+innerProofs dune_user_generated.aztec_v2_inner_proof_data_struct [];
+innerProof dune_user_generated.aztec_v2_inner_proof_data_struct;
+bridge dune_user_generated.aztec_v2_proof_bridge_data_struct;
+bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [];
+bridgeName text;
+bridgeNum numeric;
+assetId numeric;
+proofType text;
+
+-- bridge decoding byte holders
+inputAssetIdA bytea;
+outputAssetIdA bytea;
+inputAssetIdB bytea;
+outputAssetIdB bytea;
+auxData bytea;
+bitConfig bytea;
+secondInputInUse boolean;
+secondOutputInUse boolean;
 
 -- counter variables
 startIndex integer = 11 * 32;
@@ -59,14 +168,14 @@ innerProofStartIndex integer;
 innerProofDataLength integer;
 innerProofByteData bytea;
 proofId integer;
-rollupSize numeric;
+rollupSize integer;
 innerOffset integer;
 
 -- fixed constants
-NUM_BRIDGE_CALLS_PER_BLOCK numeric = 32;
-NUMBER_OF_ASSETS numeric = 16;
-LENGTH_ROLLUP_HEADER_INPUTS numeric = 4544;
-INNER_PROOF_ENCODED_LENGTH numeric = 1;
+NUM_BRIDGE_CALLS_PER_BLOCK integer = 32;
+NUMBER_OF_ASSETS integer = 16;
+LENGTH_ROLLUP_HEADER_INPUTS integer = 4544;
+INNER_PROOF_ENCODED_LENGTH integer = 1;
 EMPTY_BYTES_12 bytea = '\x000000000000000000000000';
 EMPTY_BYTES_28 bytea = '\x00000000000000000000000000000000000000000000000000000000';
 EMPTY_BYTES_32 bytea = '\x0000000000000000000000000000000000000000000000000000000000000000';
@@ -77,10 +186,69 @@ rollupSize = bytea2numeric(substring(data, 61, 4), false);
 
 for i in 0..NUM_BRIDGE_CALLS_PER_BLOCK - 1 
 loop 
+  bridgeId = substring(data, startIndex + 1, 32);
+  bridgeNum = bytea2numeric(substring(bridgeId, length(bridgeId) - 3, 4), false)::bigint & ((1::bigint << 32) - 1);
+  
+ -- currently hardcoded here but should be able to fetch dynamically from aztec_v2.RollupProcessor_call_getSupportedBridge
+ case bridgeNum
+   when 1
+   then 
+     bridgeName = 'ElementBridge';
+   when 2, 3
+   then
+     bridgeName = 'LidoBridge';
+   when 4
+   then 
+     bridgeName = 'AceOfZkBridge';
+  when 5
+  then
+     bridgeName = 'CurveStEthBridge';
+  else
+     bridgeName = 'N/A';
+ end case;
+  
+  inputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 32);
+  outputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 92);
+  inputAssetIdB = dune_user_generated.f_bytea_rshift(bridgeId, 62);
+  outputAssetIdB = dune_user_generated.f_bytea_rshift(bridgeId, 122);
+  auxData = dune_user_generated.f_bytea_rshift(bridgeId, 184);
+  bitConfig = dune_user_generated.f_bytea_rshift(bridgeId, 152);
+  
+  if (get_bit(bitConfig, 0) = 1) then
+    secondInputInUse = true;
+  else
+    secondInputInUse = false;
+  end if;
+  
+  if (get_bit(bitConfig, 1) = 1) then
+    secondOutputInUse = true;
+  else
+    secondOutputInUse = false;
+  end if;
+ 
+  select
+  --   addressId: numeric
+    bridgeNum,
+  -- bridgeName: text
+    bridgeName,
+  --   inputAssetIdA: numeric
+    bytea2numeric(substring(inputAssetIdA, length(inputAssetIdA) - 7, 8), false)::bigint & (((1::bigint << 30) - 1)),
+  --   outputAssetIdA: numeric
+    bytea2numeric(substring(outputAssetIdA, length(outputAssetIdA) - 7, 8), false)::bigint & (((1::bigint << 30) - 1)),
+  --   inputAssetIdB: numeric,
+    bytea2numeric(substring(inputAssetIdB, length(inputAssetIdB) - 7, 8), false)::bigint & (((1::bigint << 30) - 1)),
+  --   outputAssetIdB: numeric,
+    bytea2numeric(substring(outputAssetIdB, length(outputAssetIdB) - 7, 8), false)::bigint & (((1::bigint << 30) - 1)),
+  --   auxData: numeric    
+    bytea2numeric(substring(auxData, length(auxData) - 7, 8), false)::bigint & (((1::bigint << 62) - 1)),
+  --  secondInputInUse: boolean
+    secondInputInUse,
+  --  secondOutputInUse: boolean
+    secondOutputInUse
+  into bridge;
 
-bridgeIds = array_append(bridgeIds, substring(data, startIndex + 1, 32));
-startIndex = startIndex + 32;
-
+  bridges = array_append(bridges, bridge);
+  startIndex = startIndex + 32;
 end loop;
 
 for i in 0..NUM_BRIDGE_CALLS_PER_BLOCK - 1 loop defiDepositSums = array_append(
@@ -139,14 +307,21 @@ loop
 innerProofByteData = substring(data, innerProofStartIndex, length(data));
 proofId = bytea2numeric(substring(data, innerProofStartIndex + 1, 1), false);
 
-case
-  proofId -- deposit, withdraw
+case proofId -- deposit, withdraw
   when 1, 2 then
+  
+ assetId = bytea2numeric(substr(innerProofByteData, innerOffset + 32 + 32 + 32 + 32 + 32 + 20 + 1, 4), false);
+  
+if proofId = 1 then
+  proofType = 'DEPOSIT';
+else 
+  proofType = 'WITHDRAW';
+end if;
   
 innerOffset = 2;
 select
-  --   proofId numeric
-  proofId,
+  --   proofType text
+  proofType,
   --   noteCommitment1 bytea,
   substring(innerProofByteData, innerOffset + 1, 32),
   --   noteCommitment2 bytea,
@@ -155,20 +330,17 @@ select
   substring(innerProofByteData, innerOffset + 32 + 32 + 1, 32),
   --   nullifier2 bytea,
   substring(innerProofByteData, innerOffset + 32 + 32 + 32 + 1, 32),
-  --   publicValue bytea,
-  substring(innerProofByteData, innerOffset + 32 + 32 + 32 + 32 + 1, 32),
+  --   publicValue numeric,
+  bytea2numeric(substring(innerProofByteData, innerOffset + 32 + 32 + 32 + 32 + 1, 32), false),
   --   publicOwner bytea,
   EMPTY_BYTES_12 || substr(
     innerProofByteData,
     innerOffset + 32 + 32 + 32 + 32 + 32 + 1,
     20
   ),
-  --   assetId bytea
-  EMPTY_BYTES_28 || substr(
-    innerProofByteData,
-    innerOffset + 32 + 32 + 32 + 32 + 32 + 20 + 1,
-    4
-  ) into innerProof;
+  --   assetId numeric
+  assetId  
+into innerProof;
   
   INNER_PROOF_ENCODED_LENGTH = 1 + 5 * 32 + 20 + 4;
   
@@ -178,10 +350,21 @@ when 3,
 5,
 6 then
 
+
+if proofId = 3 then
+  proofType = 'SEND';
+elsif proofId = 4 then
+  proofType = 'ACCOUNT';
+elsif proofId = 5 then
+  proofType = 'DEFI_DEPOSIT';
+else
+  proofType = 'DEFI_CLAIM';
+end if;
+
 innerOffset = 2;
 select
-  --   proofId numeric
-  proofId,
+  --   proofType text
+  proofType,
   --   noteCommitment1 bytea,
   substring(innerProofByteData, innerOffset + 1, 32),
   --   noteCommitment2 bytea,
@@ -191,18 +374,20 @@ select
   --   nullifier2 bytea,
   substring(innerProofByteData, innerOffset + 32 + 32 + 32 + 1, 32),
   --   publicValue bytea,
-  EMPTY_BYTES_32,
+  bytea2numeric(EMPTY_BYTES_32, false),
   --   publicOwner bytea,
   EMPTY_BYTES_32,
-  --   assetId bytea
-  EMPTY_BYTES_32 into innerProof;
+  --   assetId - NOT VISIBLE in this transaction types
+  null 
+ into innerProof;
   
   INNER_PROOF_ENCODED_LENGTH = 1 + 4 * 32;
 
 -- padding
 else
 select
-  proofId,
+  -- proofType
+  'PADDING',
   --   noteCommitment1 bytea,
   EMPTY_BYTES_32,
   --   noteCommitment2 bytea,
@@ -212,11 +397,12 @@ select
   --   nullifier2 bytea,
   EMPTY_BYTES_32,
   --   publicValue bytea,
-  EMPTY_BYTES_32,
+  bytea2numeric(EMPTY_BYTES_32, false),
   --   publicOwner bytea,
   EMPTY_BYTES_32,
-  --   assetId bytea
-  EMPTY_BYTES_32 into innerProof;
+  --   assetId - NOT VISIBLE in this transaction types
+  null 
+into innerProof;
   
   INNER_PROOF_ENCODED_LENGTH = 1;
 end case;
@@ -250,8 +436,8 @@ select
   substring(data, 289, 32),
   -- newDefiRoot
   substring(data, 321, 32),
-  -- bridgeIds
-  bridgeIds,
+  -- bridges
+  bridges,
   -- defiDepositSums
   defiDepositSums,
   -- assetIds
@@ -272,14 +458,20 @@ into proofData;
 
 RETURN proofData;
 
--- return query
--- select
---   (
---     bytea2numeric(susbstr(_data, 0, 10), false),
---     bytea2numeric(susbstr(_data, 11, 20), false)
---   ):: aztec_v2.proof_data_struct as result
--- from
---   _data;
 end;
 
 $$LANGUAGE PLPGSQL;
+
+select
+  "call_block_time",
+  (
+    select
+      innerProofs
+    from
+      dune_user_generated.fn_process_aztec_block("_0")
+  ) as rollupid,
+  "_0"
+from
+  aztec_v2."RollupProcessor_call_processRollup"
+-- where rollupid == 20
+-- limit 22
