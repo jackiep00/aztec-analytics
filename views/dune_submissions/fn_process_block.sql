@@ -1,5 +1,5 @@
 -- taken from https://github.com/simplestreet/bytea_bitwise_operation
-CREATE OR REPLACE FUNCTION dune_user_generated.f_bytea_to_bit(
+CREATE OR REPLACE FUNCTION aztec_v2.f_bytea_to_bit(
     IN i_bytea BYTEA
 )
 RETURNS BIT VARYING
@@ -15,7 +15,7 @@ $BODY$
 LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE FUNCTION dune_user_generated.f_bit_to_bytea(
+CREATE OR REPLACE FUNCTION aztec_v2.f_bit_to_bytea(
     IN i_bit BIT VARYING
 )
 RETURNS bytea
@@ -44,7 +44,7 @@ END;
 $BODY$
 LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION dune_user_generated.f_bytea_rshift(
+CREATE OR REPLACE FUNCTION aztec_v2.f_bytea_rshift(
     IN i_bytea BYTEA,
     IN i_num INTEGER
 )
@@ -55,22 +55,22 @@ DECLARE
     w_bit BIT VARYING := b'';
     w_bytea BYTEA := null::BYTEA;
 BEGIN
-    w_bit := dune_user_generated.f_bytea_to_bit(i_bytea);
-    w_bytea := dune_user_generated.f_bit_to_bytea(w_bit >> i_num);
+    w_bit := aztec_v2.f_bytea_to_bit(i_bytea);
+    w_bytea := aztec_v2.f_bit_to_bytea(w_bit >> i_num);
 RETURN w_bytea;
 END;
 $BODY$
 LANGUAGE plpgsql;
 
 
-drop type dune_user_generated.aztec_v2_inner_proof_data_struct cascade;
+drop type aztec_v2.inner_proof_data_struct cascade;
 
-drop type dune_user_generated.aztec_v2_proof_data_struct cascade;
+drop type aztec_v2.proof_data_struct cascade;
 
-drop type dune_user_generated.aztec_v2_proof_bridge_data_struct cascade;
+drop type aztec_v2.proof_bridge_data_struct cascade;
 
 -- Infomation for bridge usage in a rollup. inputs can have up to 2 different assets of equal value; same for output assets
-create type dune_user_generated.aztec_v2_proof_bridge_data_struct as (
+create type aztec_v2.proof_bridge_data_struct as (
   -- 1-based bridge id. values can be mapped with contract method getSupportedBridges or getSupportedBridge(id)
   addressId numeric,
   -- bridge name, currently hardcoded
@@ -92,7 +92,7 @@ create type dune_user_generated.aztec_v2_proof_bridge_data_struct as (
 );
 
 -- Transaction data
-create type dune_user_generated.aztec_v2_inner_proof_data_struct as (
+create type aztec_v2.inner_proof_data_struct as (
   proofType text,
   noteCommitment1 bytea,
   noteCommitment2 bytea,
@@ -103,7 +103,7 @@ create type dune_user_generated.aztec_v2_inner_proof_data_struct as (
   assetId numeric
 );
 
-create type dune_user_generated.aztec_v2_proof_data_struct as (
+create type aztec_v2.proof_data_struct as (
   rollupId numeric,
   rollupSize numeric,
   dataStartIndex numeric,
@@ -116,7 +116,7 @@ create type dune_user_generated.aztec_v2_proof_data_struct as (
   oldDefiRoot bytea,
   newDefiRoot bytea,
   -- array of data for bridges used in rollup. Length will always be 32, bridge with address = 0 is empty data
-  bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [],
+  bridges aztec_v2.proof_bridge_data_struct [],
   -- sum of deposits made to a bridge. total value is denominated in inputAssetIdA. Mapping is 1-1 with bridges list
   defiDepositSums numeric [],
   -- asset IDs that fees were paid into
@@ -127,15 +127,15 @@ create type dune_user_generated.aztec_v2_proof_data_struct as (
   prevDefiInteractionHash bytea,
   rollupBeneficiary bytea,
   numRollupTxs numeric,
-  innerProofs dune_user_generated.aztec_v2_inner_proof_data_struct []
+  innerProofs aztec_v2.inner_proof_data_struct []
 );
 
 create
-or replace function dune_user_generated.fn_process_aztec_block(data bytea) returns dune_user_generated.aztec_v2_proof_data_struct as 
+or replace function aztec_v2.fn_process_aztec_block(data bytea) returns aztec_v2.proof_data_struct as 
 $$
 declare 
 
-proofData dune_user_generated.aztec_v2_proof_data_struct;
+proofData aztec_v2.proof_data_struct;
 
 -- placeholders
 bridgeId bytea;
@@ -143,10 +143,10 @@ defiDepositSums numeric [];
 assetIds numeric [];
 totalTxFees numeric [];
 defiInteractionNotes bytea [];
-innerProofs dune_user_generated.aztec_v2_inner_proof_data_struct [];
-innerProof dune_user_generated.aztec_v2_inner_proof_data_struct;
-bridge dune_user_generated.aztec_v2_proof_bridge_data_struct;
-bridges dune_user_generated.aztec_v2_proof_bridge_data_struct [];
+innerProofs aztec_v2.inner_proof_data_struct [];
+innerProof aztec_v2.inner_proof_data_struct;
+bridge aztec_v2.proof_bridge_data_struct;
+bridges aztec_v2.proof_bridge_data_struct [];
 bridgeName text;
 bridgeNum numeric;
 assetId numeric;
@@ -207,12 +207,12 @@ loop
      bridgeName = 'N/A';
  end case;
   
-  inputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 32);
-  outputAssetIdA = dune_user_generated.f_bytea_rshift(bridgeId, 92);
-  inputAssetIdB = dune_user_generated.f_bytea_rshift(bridgeId, 62);
-  outputAssetIdB = dune_user_generated.f_bytea_rshift(bridgeId, 122);
-  auxData = dune_user_generated.f_bytea_rshift(bridgeId, 184);
-  bitConfig = dune_user_generated.f_bytea_rshift(bridgeId, 152);
+  inputAssetIdA = aztec_v2.f_bytea_rshift(bridgeId, 32);
+  outputAssetIdA = aztec_v2.f_bytea_rshift(bridgeId, 92);
+  inputAssetIdB = aztec_v2.f_bytea_rshift(bridgeId, 62);
+  outputAssetIdB = aztec_v2.f_bytea_rshift(bridgeId, 122);
+  auxData = aztec_v2.f_bytea_rshift(bridgeId, 184);
+  bitConfig = aztec_v2.f_bytea_rshift(bridgeId, 152);
   
   if (get_bit(bitConfig, 0) = 1) then
     secondInputInUse = true;
@@ -468,7 +468,7 @@ select
     select
       innerProofs
     from
-      dune_user_generated.fn_process_aztec_block("_0")
+      aztec_v2.fn_process_aztec_block("_0")
   ) as rollupid,
   "_0"
 from

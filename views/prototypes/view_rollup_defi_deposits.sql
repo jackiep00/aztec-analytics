@@ -1,4 +1,4 @@
-create or replace view dune_user_generated.aztec_v2_view_rollup_deposits as
+create or replace view dune_user_generated.aztec_v2_view_rollup_defi_deposits as
 
 with bridge_rollups as (
 select rollupid
