@@ -15,7 +15,7 @@ left join dune_user_generated.aztec_v2_contract_labels l on b."bridgeAddress" = 
 union
 */
 -- Production bridges
-select "bridgeAddress"
+select distinct "bridgeAddress"
     , (CONCAT('<a href="https://etherscan.io/address/0'
         , SUBSTRING("bridgeAddress"::text, 2, 42), '">0'
         , SUBSTRING("bridgeAddress"::text, 2, 5),'...'
