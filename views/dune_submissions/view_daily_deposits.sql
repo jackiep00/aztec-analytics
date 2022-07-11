@@ -28,6 +28,6 @@ with daily_transfers as (
         , dt.user_withdrawal_value_norm * p.avg_price_eth as user_withdrawals_eth
     from daily_transfers dt
     -- inner join dune_user_generated.table_aztec_v2_daily_bridged_tokens_prices_cached p on dt.date = p.date and dt.token_address = p.token_address
-    inner join aztec_v2.view_daily_bridged_tokens_prices p on dt.date = p.date and dt.token_address = p.token_address
+    inner join aztec_v2.daily_token_prices p on dt.date = p.date and dt.token_address = p.token_address
 )
 select * from daily_volume
