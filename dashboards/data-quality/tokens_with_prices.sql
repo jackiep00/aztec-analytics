@@ -1,6 +1,8 @@
+-- https://dune.com/queries/893378/1561569
+
 with bridge_tokens as (
   select distinct contract_address as token_address
-  from dune_user_generated.aztec_v2_rollup_bridge_transfers
+  from aztec_v2.view_rollup_bridge_transfers
 )
 , paprika_tokens as (
   select distinct contract_address as token_address

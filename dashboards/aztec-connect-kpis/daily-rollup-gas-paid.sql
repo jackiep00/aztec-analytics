@@ -7,7 +7,7 @@ with daily_gas_paid as (
     from ethereum.transactions t
     -- where hash = '\x4ee1730c2f9bc306ec33523c9f3bb6c53d9f40c5dc94740bc42692ceb4910226'::bytea
     -- where t."from" = '\xFF1F2B4ADb9dF6FC8eAFecDcbF96A2B351680455'::bytea
-    inner join dune_user_generated.aztec_v2_contract_labels c on t."to" = c.contract_address
+    inner join aztec_v2.contract_labels c on t."to" = c.contract_address
     where c.contract_type = 'Rollup'
     group by 1
 )

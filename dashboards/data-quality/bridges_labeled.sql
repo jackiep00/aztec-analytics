@@ -24,4 +24,4 @@ select distinct "bridgeAddress"
     , l.version as label_version
     , l.description
 from aztec_v2."RollupProcessor_evt_BridgeAdded" b
-left join dune_user_generated.aztec_v2_contract_labels l on b."bridgeAddress" = l.contract_address
+left join aztec_v2.contract_labels l on b."bridgeAddress" = l.contract_address
