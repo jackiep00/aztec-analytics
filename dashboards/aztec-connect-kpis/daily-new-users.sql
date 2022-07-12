@@ -1,11 +1,12 @@
 -- https://dune.com/queries/906009
--- TODO: work with both depositors and withdrawers
 
 with first_deposit_dates as (
-    select "from" as depositor
-        , min(evt_block_time)::date as first_deposit_date
-    from dune_user_generated.aztec_v2_rollup_bridge_transfers
-    where spec_txn_type = 'User Deposit'
+  select rip.publicowner_norm
+        , min(rip.call_block_time) as first_deposit_date
+    from aztec_v2.rollup_inner_proofs rip
+    where prooftype in ('DEPOSIT')
+    -- where prooftype in ('DEPOSIT', 'WITHDRAW')
+    -- use the above if you want to include withdrawers as "users"
     group by 1
 )
 , first_depositor_counts as (
