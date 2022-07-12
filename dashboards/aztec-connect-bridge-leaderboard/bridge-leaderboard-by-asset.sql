@@ -18,7 +18,7 @@ select bridge_protocol
     , token_address as token_address
     , l.contract_creator as bridge_deployer
     , bridge_address    
-from dune_user_generated.view_aztec_v2_daily_bridge_activity b
-inner join dune_user_generated.aztec_v2_contract_labels l on b.bridge_address = l.contract_address
+from aztec_v2.view_daily_bridge_activity b
+inner join aztec_v2.contract_labels l on b.bridge_address = l.contract_address
 group by 1,2,3, token_address, l.contract_creator,bridge_address
 order by 4 desc

@@ -1,7 +1,7 @@
 -- https://dune.com/queries/895776
 with week_series as (
     select generate_series(date_trunc('week',min(date)), date_trunc('week',now()), '1 week') as week
-    from dune_user_generated.view_aztec_v2_daily_bridge_activity
+    from aztec_v2.view_daily_bridge_activity
 )
 , weekly_data as (
     select date_trunc('week', date) as week 
@@ -9,7 +9,7 @@ with week_series as (
         , sum(abs_volume_usd) as volume_usd
         , sum(num_rollups) as num_rollups -- a "txn" on L1 is actually an entire rollup of Aztec txns
         , sum(abs_volume_usd) / sum(num_rollups) as avg_rollup_size_usd
-    from dune_user_generated.view_aztec_v2_daily_bridge_activity
+    from aztec_v2.view_daily_bridge_activity
     group by 1
     order by 1 desc
 )

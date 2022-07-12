@@ -10,7 +10,7 @@ select bridge_protocol
     , sum(case when date = now() then num_rollups else 0 end) as last_day_rollups
     , l.contract_creator as bridge_deployer
     , bridge_address    
-from dune_user_generated.view_aztec_v2_daily_bridge_activity b
-inner join dune_user_generated.aztec_v2_contract_labels l on b.bridge_address = l.contract_address
+from aztec_v2.view_daily_bridge_activity b
+inner join aztec_v2.contract_labels l on b.bridge_address = l.contract_address
 group by 1,2,l.contract_creator,bridge_address
 order by 3 desc
