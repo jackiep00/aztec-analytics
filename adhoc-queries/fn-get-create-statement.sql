@@ -1,3 +1,5 @@
+-- this function was used to create table definitions for the parsed rollup blocks
+
 CREATE OR REPLACE FUNCTION dune_user_generated.show_create_table(table_name text, join_char text = E'\n' ) 
   RETURNS text AS 
 $BODY$
@@ -13,3 +15,4 @@ FROM (
   ORDER BY ordinal_position) column_list;
 $BODY$
   LANGUAGE SQL STABLE;
+
