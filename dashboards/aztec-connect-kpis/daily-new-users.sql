@@ -3,7 +3,7 @@
 with first_deposit_dates as (
   select rip.publicowner_norm
         , min(rip.call_block_time::date) as first_deposit_date
-    from aztec_v2.rollup_inner_proofs rip
+    from aztec_v2.view_rollup_inner_proofs rip
     where prooftype in ('DEPOSIT')
     -- where prooftype in ('DEPOSIT', 'WITHDRAW')
     -- use the above if you want to include withdrawers as "users"
