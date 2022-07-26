@@ -11,6 +11,7 @@ with tokens as (
   select distinct contract_address as token_address
   from aztec_v2.view_rollup_bridge_transfers
   -- from dune_user_generated.aztec_v2_rollup_bridge_transfers
+  where contract_address <> '\xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'::bytea -- exclude ETH from the initial price feed
 )
 , tokens_from_paprika as (
   select distinct contract_address as token_address
