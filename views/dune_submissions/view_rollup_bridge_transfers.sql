@@ -32,6 +32,7 @@ with erc_tfers_filtered as (
       , block_number as evt_block_number
   FROM eth_traces_filtered
   WHERE true
+    and value <> 0
     AND (LOWER(call_type) NOT IN ('delegatecall', 'callcode', 'staticcall') or call_type is null)
     AND CASE WHEN block_number < 4370000  THEN True
             WHEN block_number >= 4370000 THEN tx_success
