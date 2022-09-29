@@ -2,12 +2,12 @@
 
 select bridge_protocol
     , l.description
-    , sum(abs_volume_usd) as all_time_volume_usd
-    , sum(case when date between now() and now() - interval '7 days' then abs_volume_usd else 0 end) as "7_day_volume"
-    , sum(case when date = now() then abs_volume_usd else 0 end) as last_day_volume
+    , sum(input_volume_usd) as all_time_volume_usd
+    , sum(case when date between now()::date - interval '6 days' and now()::date then input_volume_usd else 0 end) as "7_day_volume"
+    , sum(case when date = now()::date then input_volume_usd else 0 end) as last_day_volume
     , sum(num_rollups) as all_time_rollups
-    , sum(case when date between now() and now() - interval '7 days' then num_rollups else 0 end) as "7_day_rollups"
-    , sum(case when date = now() then num_rollups else 0 end) as last_day_rollups
+    , sum(case when date between now()::date - interval '6 days' and now()::date then num_rollups else 0 end) as "7_day_rollups"
+    , sum(case when date = now()::date then num_rollups else 0 end) as last_day_rollups
     , l.contract_creator as bridge_deployer
     , bridge_address    
 from aztec_v2.view_daily_bridge_activity b
